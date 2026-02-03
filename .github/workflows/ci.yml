@@ -47,6 +47,9 @@ jobs:
       - name: Install Dependencies
         run: uv sync --all-extras --dev
 
+      - name: Debug Packages (Optional)
+        run: uv pip list
+
       - name: Run Tests
         # We inject the Env Vars directly into the test runner
         env:
@@ -58,4 +61,4 @@ jobs:
           RABBITMQ_PORT: 5672
           RABBITMQ_USER: guest
           RABBITMQ_PASSWORD: guest
-        run: uv run pytest
+        run: uv run python -m pytest
