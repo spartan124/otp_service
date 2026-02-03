@@ -1,4 +1,5 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     # APP_ENV: str
@@ -17,8 +18,9 @@ class Settings(BaseSettings):
     RABBITMQ_HOST: str
     RABBITMQ_PORT: int
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore"
+    )
 
 settings = Settings()
