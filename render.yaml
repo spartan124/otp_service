@@ -4,17 +4,32 @@ services:
     name: otp-api
     runtime: docker
     plan: free
+    repo: https://github.com/spartan124/otp_service # Optional: Explicit repo link
+    branch: main
     envVars:
       - key: PYTHONUNBUFFERED
         value: 1
-      # We will add the RABBITMQ_URL manually in the dashboard for security
-    
+      # We declare these so Render knows the app needs them.
+      # "sync: false" means "Don't look for the value here; I will add it securely in the Dashboard."
+      - key: RABBITMQ_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+
   # 2. The Background Worker
   - type: worker
     name: otp-worker
     runtime: docker
     plan: free
+    branch: main
     envVars:
       - key: PYTHONUNBUFFERED
         value: 1
-      # We will add the RABBITMQ_URL manually in the dashboard
+      - key: RABBITMQ_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
