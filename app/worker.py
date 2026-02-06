@@ -40,21 +40,29 @@ def main():
 
     while retries < max_retries:
         try:
-            print(f" [?] Attempting to connect to Host: '{settings.RABBITMQ_HOST}' Port: {settings.RABBITMQ_PORT}")
             
-            credentials = pika.PlainCredentials(
-                settings.RABBITMQ_USER,
-                settings.RABBITMQ_PASSWORD
-            )
-            
-            parameters = pika.ConnectionParameters(
-                host=settings.RABBITMQ_HOST,
-                port=settings.RABBITMQ_PORT,
-                credentials=credentials,
-                connection_attempts=3,
-                retry_delay=2
-            )
-            
+            # --- NEW CONNECTION LOGIC ---
+            if settings.RABBITMQ_URL:
+                print(f" [i] Using CloudAMQP Connection URL")
+                # Production Mode (CloudAMQP)
+                # URLParameters handles User, Pass, Host, Port, AND Virtual Host automatically
+                parameters = pika.URLParameters(settings.RABBITMQ_URL)
+            else:
+                print(f" [?] Attempting to connect to Host: '{settings.RABBITMQ_HOST}' Port: {settings.RABBITMQ_PORT}")
+
+                credentials = pika.PlainCredentials(
+                    settings.RABBITMQ_USER,
+                    settings.RABBITMQ_PASSWORD
+                )
+                
+                parameters = pika.ConnectionParameters(
+                    host=settings.RABBITMQ_HOST,
+                    port=settings.RABBITMQ_PORT,
+                    credentials=credentials,
+                    connection_attempts=3,
+                    retry_delay=2
+                )
+                
             connection = pika.BlockingConnection(parameters)
             channel = connection.channel()
             
