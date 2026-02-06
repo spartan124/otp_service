@@ -5,12 +5,21 @@ def get_redis():
     """
     Dependency that provides a Redis connection instance.
     """
-    client = redis.Redis(
-        host=settings.REDIS_HOST,
-        port=settings.REDIS_PORT,
-        password=settings.REDIS_PASSWORD,
-        decode_responses=True
-    )
+    if settings.REDIS_URL:
+        #Production(upstash)
+        print("[*] connecting to Upstash Redis...")
+        client = redis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True
+        )
+    else:
+        #Development    
+        client = redis.Redis(
+            host=settings.REDIS_HOST,
+            port=settings.REDIS_PORT,
+            password=settings.REDIS_PASSWORD,
+            decode_responses=True
+        )
     try:
         yield client
     finally:
