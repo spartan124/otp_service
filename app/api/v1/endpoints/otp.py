@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from redis import Redis
+from app.api.deps import get_rabbitmq_service
 from app.schemas.otp import OTPMessage, OTPRequest, OTPVerify
 from app.utils import generate_otp, hash_otp
 from app.db.redis import get_redis
@@ -22,7 +23,7 @@ async def generate_otp_endpoint(payload: OTPRequest, r: Redis= Depends(get_redis
     # Publish OTP to RabbitMQ for asynchronous processing (e.g., sending email)
     # In a massive scale app, we might inject this service too, 
     # but instantiating it here is fine for now.
-    mq_service = RabbitMQService()
+    mq_service: RabbitMQService = Depends(get_rabbitmq_service)
     
     message = OTPMessage(
         email=identifier,
@@ -35,5 +36,6 @@ async def generate_otp_endpoint(payload: OTPRequest, r: Redis= Depends(get_redis
         r.delete(f'otp:{identifier}')  # Rollback OTP storage on failure
         raise HTTPException(status_code=500, detail=f"Messaging error: {str(e)}")
     return {
-        "message": "OTP generated successfully"
+        "message": "OTP generated successfully",
+        "status": "queued"
     }
