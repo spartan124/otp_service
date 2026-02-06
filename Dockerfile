@@ -1,11 +1,10 @@
 # Dockerfile
 
 # STAGE 1: Builder (Installs tools and dependencies)
-FROM python:3.12-slim AS builder
+FROM python:3.12.1-slim-bookworm AS builder
 
 # Install uv (The modern way)
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
-
+COPY --from=ghcr.io/astral-sh/uv:0.10.0 /uv /bin/uv
 # Set working directory
 WORKDIR /app
 
