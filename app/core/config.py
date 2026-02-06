@@ -7,17 +7,17 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     # Redis Config
-    REDIS_HOST: str
-    REDIS_PORT: int
-    REDIS_PASSWORD: str
+    REDIS_HOST: str | None = None
+    REDIS_PORT: int | None = None
+    REDIS_PASSWORD: str | None = None
     REDIS_URL: str | None = None 
     
     
     # RabbitMQ Config
-    RABBITMQ_USER: str
-    RABBITMQ_PASSWORD: str
-    RABBITMQ_HOST: str
-    RABBITMQ_PORT: int          
+    RABBITMQ_USER: str | None = None
+    RABBITMQ_PASSWORD: str | None = None
+    RABBITMQ_HOST: str | None = None
+    RABBITMQ_PORT: int | None = None      
     RABBITMQ_URL: str | None = None
 
     model_config = SettingsConfigDict(
