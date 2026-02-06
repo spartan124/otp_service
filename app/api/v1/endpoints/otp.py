@@ -10,7 +10,7 @@ from app.services.rabbitmq import RabbitMQService
 router = APIRouter()
 
 @router.post("/generate-otp", status_code=status.HTTP_202_ACCEPTED)
-async def generate_otp_endpoint(payload: OTPRequest, r: Redis= Depends(get_redis)):
+async def generate_otp_endpoint(payload: OTPRequest, r: Redis= Depends(get_redis), mq_service: RabbitMQService = Depends(get_rabbitmq_service)):
     identifier = payload.email
     otp_code = generate_otp()
     hashed_otp = hash_otp(otp_code)
@@ -23,7 +23,6 @@ async def generate_otp_endpoint(payload: OTPRequest, r: Redis= Depends(get_redis
     # Publish OTP to RabbitMQ for asynchronous processing (e.g., sending email)
     # In a massive scale app, we might inject this service too, 
     # but instantiating it here is fine for now.
-    mq_service: RabbitMQService = Depends(get_rabbitmq_service)
     
     message = OTPMessage(
         email=identifier,
