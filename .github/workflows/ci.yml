@@ -4,7 +4,7 @@ name: CI Pipeline
 # Trigger on Pull Requests to main, or pushes to main
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
     branches: [main]
 
