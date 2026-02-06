@@ -17,19 +17,3 @@ services:
         sync: false
       - key: SECRET_KEY
         sync: false
-
-  # 2. The Background Worker
-  - type: worker
-    name: otp-worker
-    runtime: docker
-    plan: free
-    branch: main
-    envVars:
-      - key: PYTHONUNBUFFERED
-        value: 1
-      - key: RABBITMQ_URL
-        sync: false
-      - key: REDIS_URL
-        sync: false
-      - key: SECRET_KEY
-        sync: false
