@@ -16,7 +16,7 @@ async def generate_otp_endpoint(payload: OTPRequest, r: Redis= Depends(get_redis
     hashed_otp = hash_otp(otp_code)
     redis_key = f"otp:{identifier}"
     try:
-        r.setex(redis_key, 300, hashed_otp)
+        await r.setex(redis_key, 300, hashed_otp)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Redis error: {str(e)}")
     
@@ -32,7 +32,7 @@ async def generate_otp_endpoint(payload: OTPRequest, r: Redis= Depends(get_redis
     try:
         mq_service.publish_otp(message)
     except Exception as e:
-        r.delete(f'otp:{identifier}')  # Rollback OTP storage on failure
+        await r.delete(f'otp:{identifier}')  # Rollback OTP storage on failure
         raise HTTPException(status_code=500, detail=f"Messaging error: {str(e)}")
     return {
         "message": "OTP generated successfully",
