@@ -38,3 +38,22 @@ async def generate_otp_endpoint(payload: OTPRequest, r: Redis= Depends(get_redis
         "message": "OTP generated successfully",
         "status": "queued"
     }
+
+@router.post("/verify-otp", status_code=status.HTTP_200_OK)
+async def verify_otp(data: OTPVerify, r: Redis = Depends(get_redis)):
+    redis_key = f"otp:{data.email}"
+    
+    stored_hashed_otp = await r.get(redis_key)
+    
+    if not stored_hashed_otp:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP Expired or Not Found")
+    
+    input_hash = hash_otp(data.otp_code)
+    if input_hash != stored_hashed_otp:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OTP")
+    
+    await r.delete(redis_key)
+    return {
+        "status": "success",
+        "message": "OTP verified successfully"
+    }
