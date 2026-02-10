@@ -24,10 +24,10 @@ class Settings(BaseSettings):
     MAIL_USERNAME: str | None = None
     MAIL_PASSWORD: str | None = None
     MAIL_FROM: str | None = None
-    MAIL_PORT: int = 587
+    MAIL_PORT: int | None = None
     MAIL_SERVER: str | None = None
-    MAIL_STARTTLS: bool = True
-    MAIL_SSL_TLS: bool = False
+    MAIL_STARTTLS: bool | None = None
+    MAIL_SSL_TLS: bool | None = None
     USE_CREDENTIALS: bool = True
     VALIDATE_CERTS: bool = True
 
