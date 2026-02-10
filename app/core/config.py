@@ -19,6 +19,17 @@ class Settings(BaseSettings):
     RABBITMQ_HOST: str | None = None
     RABBITMQ_PORT: int | None = None      
     RABBITMQ_URL: str | None = None
+    
+    # SMTP / Email Settings
+    MAIL_USERNAME: str | None = None
+    MAIL_PASSWORD: str | None = None
+    MAIL_FROM: str | None = None
+    MAIL_PORT: int = 587
+    MAIL_SERVER: str | None = None
+    MAIL_STARTTLS: bool = True
+    MAIL_SSL_TLS: bool = False
+    USE_CREDENTIALS: bool = True
+    VALIDATE_CERTS: bool = True
 
     model_config = SettingsConfigDict(
         env_file=".env",

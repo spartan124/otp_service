@@ -4,16 +4,41 @@ import sys
 import os
 import socket # <--- Make sure this is imported
 import pika
+import asyncio
+import logging
 from app.core.config import settings
+from app.services.email_services import send_otp_email
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ... (send_email_simulation and callback functions remain exactly the same) ...
-def send_email_simulation(email: str, code: str):
-    """Simulate sending an email via SMTP"""
-    print(f"[x] Connecting to SMTP server for {email}...")
-    time.sleep(1)  # Simulate network delay
-    print(f"[x] Sent: OTP {code} delivered to {email}")
-    return True
+# def send_email_simulation(email: str, code: str):
+#     """Simulate sending an email via SMTP"""
+#     print(f"[x] Connecting to SMTP server for {email}...")
+#     time.sleep(1)  # Simulate network delay
+#     print(f"[x] Sent: OTP {code} delivered to {email}")
+#     return True
 
+async def process_message(email: str, otp_code: str):
+    """
+    Actual async logic to send the email.
+    """
+    try:
+        if not email or not otp_code:
+            logger.warning("Invalid message format")
+            return
+
+        logger.info(f"📨 Sending OTP to {email}...")
+        
+        # Await the real service
+        await send_otp_email(email, otp_code)
+        
+        logger.info(f"✅ Email sent successfully to {email}")
+
+    except Exception as e:
+        logger.error(f"❌ Error sending email: {str(e)}")
+           
 def callback(ch, method, properties, body):
     """This function is triggered every time a message is received."""
     try:
@@ -21,15 +46,19 @@ def callback(ch, method, properties, body):
         email = data.get("email")
         otp_code = data.get("otp_code")
         
-        print(f" [>] Received task for: {email}")
+        logger.info(f" [>] Received task for: {email}")
         
-        send_email_simulation(email, otp_code)
+        # --- THE FIX IS HERE ---
+        # We must create a new event loop to run the async function
+        # because 'callback' is synchronous.
+        asyncio.run(process_message(email, otp_code))
         
         # Manual Acknowledgment
         ch.basic_ack(delivery_tag=method.delivery_tag)
     
     except Exception as e:
-        print(f"[!] Error processing message: {e}")
+        logger.error(f"[!] Error processing message: {e}")
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
 def main():
     print(" [*] Starting worker Service...")
