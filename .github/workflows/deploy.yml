@@ -1,12 +1,9 @@
 name: Deploy
 
 on:
-  # 1. Auto-deploy to Prod on merge to main
   push:
     branches:
       - main
-  
-  # 2. Manual Trigger for Staging (The "Fix" for your problem)
   workflow_dispatch:
     inputs:
       environment:
@@ -21,34 +18,25 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    # 1. This Block adds the "View Deployment" Button
+    environment:
+      # Logic: If main branch OR manual production input -> 'production', else 'staging'
+      name: ${{ (github.ref == 'refs/heads/main' || inputs.environment == 'production') && 'production' || 'staging' }}
+      # Logic: Pick the correct URL variable based on the same logic
+      url: ${{ (github.ref == 'refs/heads/main' || inputs.environment == 'production') && vars.RENDER_URL_PROD || vars.RENDER_URL_STAGING }}
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set Deploy Target
-        id: target
-        run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            echo "env_name=production" >> $GITHUB_OUTPUT
-            echo "service_id=${{ secrets.RENDER_SERVICE_ID_PROD }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ inputs.environment }}" == "production" ]]; then
-            echo "env_name=production" >> $GITHUB_OUTPUT
-            echo "service_id=${{ secrets.RENDER_SERVICE_ID_PROD }}" >> $GITHUB_OUTPUT
-          else
-            echo "env_name=staging" >> $GITHUB_OUTPUT
-            echo "service_id=${{ secrets.RENDER_SERVICE_ID_STAGING }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Deploy to Render
-        uses: JorgeLNJunior/render-deploy@v1.5.0
+        uses: JorgeLNJunior/render-deploy@v1.4.4
         with:
-          service_id: ${{ steps.target.outputs.service_id }}
+          # Logic: Pick the correct Service ID Secret
+          service_id: ${{ (github.ref == 'refs/heads/main' || inputs.environment == 'production') && secrets.RENDER_SERVICE_ID_PROD || secrets.RENDER_SERVICE_ID_STAGING }}
           api_key: ${{ secrets.RENDER_API_KEY }}
           clear_cache: false
           wait_deploy: true
-          # This tells Render to deploy THIS specific commit, not just "latest main"
-          github_token: ${{ secrets.GITHUB_TOKEN }} # Required to resolve the ref
-      
-      - name: Notification
-        if: success()
-        run: echo "✅ Deployed to ${{ steps.target.outputs.env_name }}!"
+          ref: ${{ github.sha }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
