@@ -8,5 +8,6 @@ app = FastAPI(title=settings.PROJECT_NAME)
 app.include_router(otp.router, prefix=settings.API_V1_STR, tags=["OTP"])
 
 @app.get("/health")
+@app.head("/health")
 async def health_check():
     return {"status": "ok"}
