@@ -1,7 +1,7 @@
 services:
   # 1. The Web API
   - type: web
-    name: otp-api
+    name: otp-service
     runtime: docker
     plan: free
     repo: https://github.com/spartan124/otp_service # Optional: Explicit repo link
@@ -25,3 +25,10 @@ services:
         sync: false
       - key: MAIL_FROM
         sync: false
+      - key: MAIL_STARTTLS
+        sync: false
+      - key: MAIL_SSL_TLS
+        sync: false
+      - key: MAIL_PORT
+        sync: false
+
