@@ -16,7 +16,7 @@ on:
           - production
 
 jobs:
-  # JOB 1: Determine the Environment Variables
+  # JOB 1: Determine Environment & Validation
   setup:
     runs-on: ubuntu-latest
     outputs:
@@ -26,27 +26,53 @@ jobs:
     steps:
       - name: Set Deploy Target
         id: target
+        # Pass secrets as env vars to avoid quoting issues
+        env:
+          PROD_ID: ${{ secrets.RENDER_SERVICE_ID_PROD }}
+          STAGING_ID: ${{ secrets.RENDER_SERVICE_ID_STAGING }}
+          PROD_URL: ${{ vars.RENDER_URL_PROD }}
+          STAGING_URL: ${{ vars.RENDER_URL_STAGING }}
         run: |
+          echo "🔍 Debugging Deployment Target..."
+          
+          # Default to Staging
+          ENV_NAME="staging"
+          SERVICE_ID="$STAGING_ID"
+          URL="$STAGING_URL"
+
+          # Check for Production Triggers
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "env_name=production" >> "$GITHUB_OUTPUT"
-            echo "service_id=${{ secrets.RENDER_SERVICE_ID_PROD }}" >> "$GITHUB_OUTPUT"
-            echo "url=${{ vars.RENDER_URL_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "✅ Trigger: Push to Main -> Production"
+            ENV_NAME="production"
+            SERVICE_ID="$PROD_ID"
+            URL="$PROD_URL"
           elif [[ "${{ inputs.environment }}" == "production" ]]; then
-            echo "env_name=production" >> "$GITHUB_OUTPUT"
-            echo "service_id=${{ secrets.RENDER_SERVICE_ID_PROD }}" >> "$GITHUB_OUTPUT"
-            echo "url=${{ vars.RENDER_URL_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "✅ Trigger: Manual Dispatch -> Production"
+            ENV_NAME="production"
+            SERVICE_ID="$PROD_ID"
+            URL="$PROD_URL"
           else
-            echo "env_name=staging" >> "$GITHUB_OUTPUT"
-            echo "service_id=${{ secrets.RENDER_SERVICE_ID_STAGING }}" >> "$GITHUB_OUTPUT"
-            echo "url=${{ vars.RENDER_URL_STAGING }}" >> "$GITHUB_OUTPUT"
+            echo "✅ Trigger: Default/Manual -> Staging"
           fi
 
-  # JOB 2: Perform the Deployment
+          # 🛑 SAFETY CHECK: Fail here if ID is missing
+          if [[ -z "$SERVICE_ID" ]]; then
+            echo "::error::❌ Service ID is EMPTY! Check your GitHub Secrets for RENDER_SERVICE_ID_STAGING or RENDER_SERVICE_ID_PROD."
+            exit 1
+          fi
+
+          echo "🚀 Target Environment: $ENV_NAME"
+          echo "🆔 Service ID: ${SERVICE_ID:0:5}*****" # Print first 5 chars for verification
+
+          # Set Outputs
+          echo "env_name=$ENV_NAME" >> "$GITHUB_OUTPUT"
+          echo "service_id=$SERVICE_ID" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+  # JOB 2: Deploy
   deploy:
-    needs: setup  # <--- Waits for 'setup' to finish
+    needs: setup
     runs-on: ubuntu-latest
-    
-    # Now we can use the outputs from the previous job!
     environment:
       name: ${{ needs.setup.outputs.env_name }}
       url: ${{ needs.setup.outputs.url }}
