@@ -39,15 +39,24 @@ jobs:
             echo "service_id=${{ secrets.RENDER_SERVICE_ID_STAGING }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Deploy to Render
-        uses: JorgeLNJunior/render-deploy@v1.5.0
-        with:
-          service_id: ${{ steps.target.outputs.service_id }}
-          api_key: ${{ secrets.RENDER_API_KEY }}
-          clear_cache: false
-          wait_deploy: true
-          # This tells Render to deploy THIS specific commit, not just "latest main"
-          github_token: ${{ secrets.GITHUB_TOKEN }} # Required to resolve the ref
+      - name: Deploy to Render via API
+        env:
+          # Construct the URL manually to ensure it's correct
+          DEPLOY_URL: https://api.render.com/v1/services/${{ steps.target.outputs.service_id }}/deploys
+        run: |
+          echo "🚀 Deploying to: ${{ steps.target.outputs.service_id }}"
+          
+          # Check if Service ID is empty (Common user error)
+          if [[ -z "${{ steps.target.outputs.service_id }}" ]]; then
+            echo "❌ Error: Service ID is empty! Check your GitHub Secrets."
+            exit 1
+          fi
+
+          # Trigger Deploy
+          curl -f -X POST "$DEPLOY_URL" \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"commitId\": \"${{ github.sha }}\"}"
       
       - name: Notification
         if: success()
