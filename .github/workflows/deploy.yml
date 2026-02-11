@@ -1,12 +1,9 @@
 name: Deploy
 
 on:
-  # 1. Auto-deploy to Prod on merge to main
   push:
     branches:
       - main
-  
-  # 2. Manual Trigger for Staging (The "Fix" for your problem)
   workflow_dispatch:
     inputs:
       environment:
@@ -21,6 +18,10 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ steps.target.outputs.env_name }}
+      url: ${{ steps.target.outputs.url }}
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -28,27 +29,25 @@ jobs:
       - name: Set Deploy Target
         id: target
         run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "env_name=production" >> $GITHUB_OUTPUT
             echo "service_id=${{ secrets.RENDER_SERVICE_ID_PROD }}" >> $GITHUB_OUTPUT
+            echo "url=${{ vars.RENDER_URL_PROD }}" >> $GITHUB_OUTPUT
           elif [[ "${{ inputs.environment }}" == "production" ]]; then
             echo "env_name=production" >> $GITHUB_OUTPUT
             echo "service_id=${{ secrets.RENDER_SERVICE_ID_PROD }}" >> $GITHUB_OUTPUT
+            echo "url=${{ vars.RENDER_URL_PROD }}" >> $GITHUB_OUTPUT
           else
             echo "env_name=staging" >> $GITHUB_OUTPUT
             echo "service_id=${{ secrets.RENDER_SERVICE_ID_STAGING }}" >> $GITHUB_OUTPUT
+            echo "url=${{ vars.RENDER_URL_STAGING }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Deploy to Render
-        uses: JorgeLNJunior/render-deploy@v1.5.0
+        uses: JorgeLNJunior/render-deploy@v1.4.4
         with:
           service_id: ${{ steps.target.outputs.service_id }}
           api_key: ${{ secrets.RENDER_API_KEY }}
           clear_cache: false
           wait_deploy: true
-          # This tells Render to deploy THIS specific commit, not just "latest main"
-          github_token: ${{ secrets.GITHUB_TOKEN }} # Required to resolve the ref
-      
-      - name: Notification
-        if: success()
-        run: echo "✅ Deployed to ${{ steps.target.outputs.env_name }}!"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
