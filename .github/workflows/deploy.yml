@@ -40,15 +40,15 @@ jobs:
           fi
 
       - name: Deploy to Render
-        # Uses the official Render Action to trigger a deploy for THIS specific commit
-        uses: render-inc/deploy-to-render-action@v1
+        uses: JorgeLNJunior/render-deploy@v1.5.0
         with:
-          serviceId: ${{ steps.target.outputs.service_id }}
-          apiKey: ${{ secrets.RENDER_API_KEY }}
-          deployHookUrl: "" # We use API Key + Service ID instead
-          ref: ${{ github.sha }} # <--- This deploys the EXACT commit you are on
-          waitDeploy: true       # Wait for it to finish so we know if it failed
-
+          service_id: ${{ steps.target.outputs.service_id }}
+          api_key: ${{ secrets.RENDER_API_KEY }}
+          clear_cache: false
+          wait_deploy: true
+          # This tells Render to deploy THIS specific commit, not just "latest main"
+          github_token: ${{ secrets.GITHUB_TOKEN }} # Required to resolve the ref
+      
       - name: Notification
         if: success()
         run: echo "✅ Deployed to ${{ steps.target.outputs.env_name }}!"
