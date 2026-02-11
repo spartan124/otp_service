@@ -16,73 +16,27 @@ on:
           - production
 
 jobs:
-  # JOB 1: Determine Environment & Validation
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      env_name: ${{ steps.target.outputs.env_name }}
-      service_id: ${{ steps.target.outputs.service_id }}
-      url: ${{ steps.target.outputs.url }}
-    steps:
-      - name: Set Deploy Target
-        id: target
-        # Pass secrets as env vars to avoid quoting issues
-        env:
-          PROD_ID: ${{ secrets.RENDER_SERVICE_ID_PROD }}
-          STAGING_ID: ${{ secrets.RENDER_SERVICE_ID_STAGING }}
-          PROD_URL: ${{ vars.RENDER_URL_PROD }}
-          STAGING_URL: ${{ vars.RENDER_URL_STAGING }}
-        run: |
-          echo "🔍 Debugging Deployment Target..."
-          
-          # Default to Staging
-          ENV_NAME="staging"
-          SERVICE_ID="$STAGING_ID"
-          URL="$STAGING_URL"
-
-          # Check for Production Triggers
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "✅ Trigger: Push to Main -> Production"
-            ENV_NAME="production"
-            SERVICE_ID="$PROD_ID"
-            URL="$PROD_URL"
-          elif [[ "${{ inputs.environment }}" == "production" ]]; then
-            echo "✅ Trigger: Manual Dispatch -> Production"
-            ENV_NAME="production"
-            SERVICE_ID="$PROD_ID"
-            URL="$PROD_URL"
-          else
-            echo "✅ Trigger: Default/Manual -> Staging"
-          fi
-
-          # 🛑 SAFETY CHECK: Fail here if ID is missing
-          if [[ -z "$SERVICE_ID" ]]; then
-            echo "::error::❌ Service ID is EMPTY! Check your GitHub Secrets for RENDER_SERVICE_ID_STAGING or RENDER_SERVICE_ID_PROD."
-            exit 1
-          fi
-
-          echo "🚀 Target Environment: $ENV_NAME"
-          echo "🆔 Service ID: ${SERVICE_ID:0:5}*****" # Print first 5 chars for verification
-
-          # Set Outputs
-          echo "env_name=$ENV_NAME" >> "$GITHUB_OUTPUT"
-          echo "service_id=$SERVICE_ID" >> "$GITHUB_OUTPUT"
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
-
-  # JOB 2: Deploy
   deploy:
-    needs: setup
     runs-on: ubuntu-latest
+
+    # 1. This Block adds the "View Deployment" Button
     environment:
-      name: ${{ needs.setup.outputs.env_name }}
-      url: ${{ needs.setup.outputs.url }}
+      # Logic: If main branch OR manual production input -> 'production', else 'staging'
+      name: ${{ (github.ref == 'refs/heads/main' || inputs.environment == 'production') && 'production' || 'staging' }}
+      # Logic: Pick the correct URL variable based on the same logic
+      url: ${{ (github.ref == 'refs/heads/main' || inputs.environment == 'production') && vars.RENDER_URL_PROD || vars.RENDER_URL_STAGING }}
 
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
       - name: Deploy to Render
         uses: JorgeLNJunior/render-deploy@v1.4.4
         with:
-          service_id: ${{ needs.setup.outputs.service_id }}
+          # Logic: Pick the correct Service ID Secret
+          service_id: ${{ (github.ref == 'refs/heads/main' || inputs.environment == 'production') && secrets.RENDER_SERVICE_ID_PROD || secrets.RENDER_SERVICE_ID_STAGING }}
           api_key: ${{ secrets.RENDER_API_KEY }}
           clear_cache: false
           wait_deploy: true
+          ref: ${{ github.sha }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
