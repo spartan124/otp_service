@@ -1,7 +1,7 @@
 services:
   # 1. The Web API
   - type: web
-    name: otp-api
+    name: otp-service
     runtime: docker
     plan: free
     repo: https://github.com/spartan124/otp_service # Optional: Explicit repo link
