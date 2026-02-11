@@ -16,37 +16,46 @@ on:
           - production
 
 jobs:
-  deploy:
+  # JOB 1: Determine the Environment Variables
+  setup:
     runs-on: ubuntu-latest
-    environment:
-      name: ${{ steps.target.outputs.env_name }}
+    outputs:
+      env_name: ${{ steps.target.outputs.env_name }}
+      service_id: ${{ steps.target.outputs.service_id }}
       url: ${{ steps.target.outputs.url }}
-
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
       - name: Set Deploy Target
         id: target
         run: |
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "env_name=production" >> $GITHUB_OUTPUT
-            echo "service_id=${{ secrets.RENDER_SERVICE_ID_PROD }}" >> $GITHUB_OUTPUT
-            echo "url=${{ vars.RENDER_URL_PROD }}" >> $GITHUB_OUTPUT
+            echo "env_name=production" >> "$GITHUB_OUTPUT"
+            echo "service_id=${{ secrets.RENDER_SERVICE_ID_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "url=${{ vars.RENDER_URL_PROD }}" >> "$GITHUB_OUTPUT"
           elif [[ "${{ inputs.environment }}" == "production" ]]; then
-            echo "env_name=production" >> $GITHUB_OUTPUT
-            echo "service_id=${{ secrets.RENDER_SERVICE_ID_PROD }}" >> $GITHUB_OUTPUT
-            echo "url=${{ vars.RENDER_URL_PROD }}" >> $GITHUB_OUTPUT
+            echo "env_name=production" >> "$GITHUB_OUTPUT"
+            echo "service_id=${{ secrets.RENDER_SERVICE_ID_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "url=${{ vars.RENDER_URL_PROD }}" >> "$GITHUB_OUTPUT"
           else
-            echo "env_name=staging" >> $GITHUB_OUTPUT
-            echo "service_id=${{ secrets.RENDER_SERVICE_ID_STAGING }}" >> $GITHUB_OUTPUT
-            echo "url=${{ vars.RENDER_URL_STAGING }}" >> $GITHUB_OUTPUT
+            echo "env_name=staging" >> "$GITHUB_OUTPUT"
+            echo "service_id=${{ secrets.RENDER_SERVICE_ID_STAGING }}" >> "$GITHUB_OUTPUT"
+            echo "url=${{ vars.RENDER_URL_STAGING }}" >> "$GITHUB_OUTPUT"
           fi
 
+  # JOB 2: Perform the Deployment
+  deploy:
+    needs: setup  # <--- Waits for 'setup' to finish
+    runs-on: ubuntu-latest
+    
+    # Now we can use the outputs from the previous job!
+    environment:
+      name: ${{ needs.setup.outputs.env_name }}
+      url: ${{ needs.setup.outputs.url }}
+
+    steps:
       - name: Deploy to Render
         uses: JorgeLNJunior/render-deploy@v1.4.4
         with:
-          service_id: ${{ steps.target.outputs.service_id }}
+          service_id: ${{ needs.setup.outputs.service_id }}
           api_key: ${{ secrets.RENDER_API_KEY }}
           clear_cache: false
           wait_deploy: true
