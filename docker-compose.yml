@@ -6,6 +6,9 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     environment:
       - PYTHONUNBUFFERED=1      # Crucial for seeing logs
       - REDIS_HOST=redis

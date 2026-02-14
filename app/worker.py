@@ -7,7 +7,7 @@ import pika
 import asyncio
 import logging
 from app.core.config import settings
-from app.services.email_services import send_otp_email
+from app.services.email_service import email_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ async def process_message(email: str, otp_code: str):
         logger.info(f"📨 Sending OTP to {email}...")
         
         # Await the real service
-        await send_otp_email(email, otp_code)
+        await email_service.send_otp(email, otp_code)
         
         logger.info(f"✅ Email sent successfully to {email}")
 
