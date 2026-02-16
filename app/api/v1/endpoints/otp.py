@@ -1,12 +1,13 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from redis.asyncio import Redis
 from fastapi_limiter.depends import RateLimiter
+from pyrate_limiter import Duration, Rate, Limiter
 from app.api.deps import get_rabbitmq_service, limit_by_email
 from app.schemas.otp import OTPMessage, OTPRequest, OTPVerify
 from app.utils import generate_otp, hash_otp
 from app.db.redis import get_redis
 from app.services.rabbitmq import RabbitMQService
-
+from app.core.limiter import otp_limiter
 
 router = APIRouter()
 
@@ -14,8 +15,8 @@ router = APIRouter()
     "/generate-otp",
     status_code=status.HTTP_202_ACCEPTED,
     dependencies=[
-        Depends(RateLimiter(times=5, seconds=60)),
-        Depends(RateLimiter(times=3, seconds=60, identifier=limit_by_email)),
+        Depends(RateLimiter(limiter=otp_limiter)),
+        Depends(RateLimiter(limiter=otp_limiter, identifier=limit_by_email)),
     ],
 )
 async def generate_otp_endpoint(payload: OTPRequest, r: Redis= Depends(get_redis), mq_service: RabbitMQService = Depends(get_rabbitmq_service)):
@@ -51,8 +52,8 @@ async def generate_otp_endpoint(payload: OTPRequest, r: Redis= Depends(get_redis
     "/verify-otp",
     status_code=status.HTTP_200_OK,
     dependencies=[
-        Depends(RateLimiter(times=5, seconds=60)),
-        Depends(RateLimiter(times=3, seconds=60, identifier=limit_by_email)),
+        Depends(RateLimiter(limiter=Limiter(Rate(5, Duration.MINUTE)))),
+        Depends(RateLimiter(limiter=Limiter(Rate(3, Duration.MINUTE)), identifier=limit_by_email)),
     ],
 )
 async def verify_otp(data: OTPVerify, r: Redis = Depends(get_redis)):

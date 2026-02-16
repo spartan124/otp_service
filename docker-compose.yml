@@ -28,6 +28,9 @@ services:
   worker:
     build: .
     command: python -m app.worker
+    dns:  # <--- ADD THIS BLOCK
+      - 8.8.8.8
+      - 1.1.1.1
     env_file:
       - .env
     environment:
