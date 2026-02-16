@@ -1,57 +1,64 @@
-import pika
+import aio_pika
 import json
+import logging
 from app.core.config import settings
 from app.schemas.otp import OTPMessage
 
+logger = logging.getLogger(__name__)
+
 class RabbitMQService:
     def __init__(self):
+        self.connection = None
+        self.channel = None
         self.queue_name = "otp_notifications"
+        # Determine the URL immediately upon instantiation
+        self.url = self._build_connection_url()
 
-        # --- CONFIGURATION LOGIC ---
+    def _build_connection_url(self) -> str:
+        """
+        Builds the connection URL. 
+        Prioritizes CloudAMQP (Prod), falls back to Local Config (Dev).
+        """
         if settings.RABBITMQ_URL:
-            # Production Mode (CloudAMQP)
-            print(f" [i] Using CloudAMQP Connection URL")
-            self.parameters = pika.URLParameters(settings.RABBITMQ_URL)
-        else:
-            # Local Development Mode (Docker)
-            print(f" [i] Using Local RabbitMQ Credentials")
-            credentials = pika.PlainCredentials(
-                settings.RABBITMQ_USER, 
-                settings.RABBITMQ_PASSWORD,
-            )
-            self.parameters = pika.ConnectionParameters(
-                host=settings.RABBITMQ_HOST,
-                port=settings.RABBITMQ_PORT,
-                credentials=credentials,
-                connection_attempts=3,
-                retry_delay=2
-            )
-    
-    def connect(self):
-        """Helper method to establish connection using stored parameters."""
-        return pika.BlockingConnection(self.parameters)
-    
-    def publish_otp(self, message: OTPMessage):
-        """
-        Connects to RabbitMQ and pushes a message to the queue.
-        """
-        # FIX: Use the helper method instead of manual connection!
-        connection = self.connect() 
+            logger.info(" [i] Using CloudAMQP Connection URL")
+            return settings.RABBITMQ_URL
         
+        logger.info(" [i] Using Local RabbitMQ Credentials")
+        # Construct the AMQP URL manually for local dev
+        # Format: amqp://user:password@host:port/
+        return (
+            f"amqp://{settings.RABBITMQ_USER}:{settings.RABBITMQ_PASSWORD}"
+            f"@{settings.RABBITMQ_HOST}:{settings.RABBITMQ_PORT}/"
+        )
+
+    async def connect(self):
+        """Idempotent connection logic."""
+        # If we are already connected, do nothing.
+        if self.connection and not self.connection.is_closed:
+            return
+
         try:
-            channel = connection.channel()
+            self.connection = await aio_pika.connect_robust(self.url)
+            self.channel = await self.connection.channel()
             
-            # Idempotency: Declare the queue ensures it exists
-            channel.queue_declare(queue=self.queue_name, durable=True)
-            
-            channel.basic_publish(
-                exchange='',
-                routing_key=self.queue_name,
-                body=json.dumps(message.model_dump()),
-                properties=pika.BasicProperties(
-                    delivery_mode=2,  # Make message persistent
-                )
-            )
-        finally:
-            # Ensuring connection closes even if an error occurs above
-            connection.close()
+            # Idempotent queue declaration
+            await self.channel.declare_queue(self.queue_name, durable=True)
+            logger.info("✅ RabbitMQ Connected")
+        except Exception as e:
+            logger.error(f"❌ RabbitMQ Connection Failed: {e}")
+            raise e
+
+    async def publish_otp(self, message: OTPMessage):
+        """Publishes without closing the connection."""
+        if not self.channel or self.channel.is_closed:
+            await self.connect()
+
+        body = json.dumps(message.model_dump()).encode()
+        
+        await self.channel.default_exchange.publish(
+            aio_pika.Message(
+                body=body,
+                delivery_mode=aio_pika.DeliveryMode.PERSISTENT
+            ),
+            routing_key=self.queue_name
+        )

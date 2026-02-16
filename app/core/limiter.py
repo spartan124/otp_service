@@ -14,6 +14,7 @@ class RedisBucketFactory(BucketFactory):
         self.redis = redis_connection
         self.rates = rates
         self.clock = MonotonicClock()
+        self.buckets = {}
         
     def wrap_item(self, name: str, weight: int = 1):
         """Standard wrapper required by pyrate-limiter v4"""
@@ -24,13 +25,19 @@ class RedisBucketFactory(BucketFactory):
         """
         The Magic: Returns a specific bucket for the incoming  'item' (user/IP).
         """
-        bucket_key = f"rate-limit:{item.name}"
+        if item.name in self.buckets:
+            return self.buckets[item.name]
         
-        return RedisBucket.init(
+        bucket_key = f"rate-limit:{item.name}"
+        logger.info(f"🆕 Initializing new Rate Limit Bucket for: {item.name}")
+        
+        new_bucket = RedisBucket.init(
             self.rates,
             self.redis,
             bucket_key
         )
+        self.buckets[item.name] = new_bucket
+        return new_bucket
     
     def schedule_leak(self, *args):
         pass

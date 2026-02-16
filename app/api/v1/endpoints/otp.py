@@ -1,3 +1,6 @@
+import asyncio
+import time
+import logging
 from fastapi import APIRouter, HTTPException, Depends, status
 from redis.asyncio import Redis
 from fastapi_limiter.depends import RateLimiter
@@ -8,6 +11,9 @@ from app.utils import generate_otp, hash_otp
 from app.db.redis import get_redis
 from app.services.rabbitmq import RabbitMQService
 from app.core.limiter import otp_limiter
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -20,15 +26,23 @@ router = APIRouter()
     ],
 )
 async def generate_otp_endpoint(payload: OTPRequest, r: Redis= Depends(get_redis), mq_service: RabbitMQService = Depends(get_rabbitmq_service)):
+    
+    t0 = time.perf_counter()
     identifier = payload.email
     otp_code = generate_otp()
     hashed_otp = hash_otp(otp_code)
+    
+    t1 = time.perf_counter()
+    logger.info(f"✅ OTP Gen took: {(t1 - t0) * 1000:.2f}ms")
+    
     redis_key = f"otp:{identifier}"
     try:
         await r.setex(redis_key, 300, hashed_otp)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Redis error: {str(e)}")
     
+    t2 = time.perf_counter()
+    logger.info(f"✅ Redis Write took: {(t2 - t1) * 1000:.2f}ms")
     # Publish OTP to RabbitMQ for asynchronous processing (e.g., sending email)
     # In a massive scale app, we might inject this service too, 
     # but instantiating it here is fine for now.
@@ -39,10 +53,14 @@ async def generate_otp_endpoint(payload: OTPRequest, r: Redis= Depends(get_redis
         ttl=300
     )
     try:
-        mq_service.publish_otp(message)
+        await asyncio.to_thread(mq_service.publish_otp, message)
     except Exception as e:
         await r.delete(f'otp:{identifier}')  # Rollback OTP storage on failure
         raise HTTPException(status_code=500, detail=f"Messaging error: {str(e)}")
+    
+    t3 = time.perf_counter()
+    logger.info(f"🚨 RabbitMQ Publish took: {(t3 - t2) * 1000:.2f}ms")
+    
     return {
         "message": "OTP generated successfully",
         "status": "queued"
