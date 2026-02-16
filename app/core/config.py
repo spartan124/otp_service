@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     MAIL_SSL_TLS: bool | None = None
     USE_CREDENTIALS: bool = True
     VALIDATE_CERTS: bool = True
+    
+    #RESEND / Email Provider Settings
+    RESEND_API_KEY: str | None = None
+    RESEND_API_URL: str | None = None
+    RESEND_MAIL_FROM: str | None = None
+    EMAIL_PROVIDER: str = "resend"
 
     model_config = SettingsConfigDict(
         env_file=".env",
